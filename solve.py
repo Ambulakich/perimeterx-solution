@@ -7,6 +7,21 @@ import base64
 from fingerprint import fingerprint_1, fingerprint_2
 from mods import encrypt_payload, generate_pc
 import urllib.parse
+
+def get_version_from_js(js_path: str = "px_deobf.js") -> str:
+    """Extract captcha version string from the given JS file."""
+    try:
+        with open(js_path, "r", encoding="utf-8") as f:
+            data = f.read()
+        match = re.search(r'captcha_version\\"\s*:\s*\\"([^\\"]+)\\"', data)
+        if match:
+            return match.group(1)
+        generic = re.search(r"v\d+\.\d+\.\d+(?:-hf)?", data)
+        if generic:
+            return generic.group(0)
+    except Exception:
+        pass
+    return "v8.9.6"
 class PX:
     def __init__(self, app_id: str, ft: int, collector_uri: str, host: str, sid: str, vid: str, cts: str, pxhd: str=None, proxy: str=None):
         self.session = tls_client.Session(client_identifier="chrome_127", random_tls_extension_order=True)
@@ -39,6 +54,7 @@ class PX:
         }
         self.custom_padding = list('G^S}DNK8DNa>D`K}GK77')
         self.st = int(time.time()) * 1000
+        self.version = get_version_from_js()
         self.site_uuids = {
             "sid": sid,
             "vid": vid,
@@ -46,7 +62,7 @@ class PX:
         }
         self.uuid = str(uuid.uuid4())
         self.cu = str(uuid.uuid4())
-        self.pc_key = f"{self.uuid}:v8.9.6:{ft}"
+        self.pc_key = f"{self.uuid}:{self.version}:{ft}"
         self.rsc = 1
 
     @staticmethod
@@ -62,7 +78,7 @@ class PX:
         self.raw_payload = fingerprint_1(self.host, self.uuid, self.st)
         payload_key = {
             "vid": self.site_uuids['vid'],
-            "tag": "v8.9.6",
+            "tag": self.version,
             "appID": self.app_id,
             "cu": self.cu,
             "pc": str(generate_pc(self.pc_key, self.raw_payload))
@@ -70,7 +86,7 @@ class PX:
         payload = {
             "payload": encrypt_payload(self.raw_payload),
             "appId": self.app_id,
-            "tag": "v8.9.6",
+            "tag": self.version,
             "uuid": self.uuid,
             "ft": self.ft,
             "seq": (self.rsc - 1),
@@ -97,12 +113,12 @@ class PX:
         payload_data = {
             "payload": encrypt_payload(self.fp_2),
             "appId": self.app_id,
-            "tag": "v8.9.6",
+            "tag": self.version,
             "uuid": self.uuid,
             "ft": self.ft,
             "seq": self.rsc,
             "en": "NTA",
-            "cs": f"{self.resp_1.split("1ooo11|")[1].split("~")[0]}",
+            "cs": f"{self.resp_1.split('1ooo11|')[1].split('~')[0]}",
             "pc": generate_pc(self.pc_key, self.fp_2),
             "sid": self.site_uuids['sid'],
             "vid": self.site_uuids['vid'],
